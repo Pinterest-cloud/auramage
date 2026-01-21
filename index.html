@@ -1,0 +1,269 @@
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>auramage OS v19 - Nusantara Ultimate</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,800;1,200;1,800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #030305; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const { 
+            Music, Globe, Zap, Terminal, RefreshCw, Play, 
+            ShieldCheck, Database, AlertCircle, ExternalLink,
+            ChevronRight, Cpu, HardDrive, LayoutGrid, Clock,
+            Moon, Sun, Download, Video, MapPin, BellRing 
+        } = lucide;
+
+        const Icon = ({ name, size = 20, className = "" }) => {
+            useEffect(() => { lucide.createIcons(); }, []);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const App = () => {
+            const [activeModule, setActiveModule] = useState('tiktok');
+            const [loading, setLoading] = useState(false);
+            const [inputVal, setInputVal] = useState('');
+            const [logs, setLogs] = useState(['// Skyzopedia OS v19: Nusantara System Online.']);
+            const [previewData, setPreviewData] = useState(null);
+            const [apiRaw, setApiRaw] = useState(null);
+            const [time, setTime] = useState(new Date());
+            const [prayerTimes, setPrayerTimes] = useState(null);
+            const [location, setLocation] = useState({ city: 'Jakarta', zone: 'WIB' });
+
+            const MASTER_KEY = "c65dc6a2c5mshfb24b91d1f6e1f8p14dfdbjsn5fdffba5530e";
+
+            const addLog = (msg) => setLogs(prev => [...prev.slice(-8), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+
+            useEffect(() => {
+                const timer = setInterval(() => setTime(new Date()), 1000);
+                const offset = new Date().getTimezoneOffset() / -60;
+                let zone = 'WIB';
+                if (offset === 8) zone = 'WITA';
+                if (offset === 9) zone = 'WIT';
+                setLocation(prev => ({ ...prev, zone }));
+
+                fetch(`https://api.aladhan.com/v1/timingsByCity?city=Jakarta&country=Indonesia&method=2`)
+                    .then(res => res.json())
+                    .then(data => setPrayerTimes(data.data.timings))
+                    .catch(() => addLog("⚠️ Gagal koneksi jadwal salat."));
+
+                return () => clearInterval(timer);
+            }, []);
+
+            const formattedTime = time.toLocaleTimeString('en-GB', { hour12: false });
+            const currentPrayer = useMemo(() => {
+                if (!prayerTimes) return null;
+                const now = formattedTime.substring(0, 5);
+                const prayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+                return prayers.find(p => prayerTimes[p] === now);
+            }, [formattedTime, prayerTimes]);
+
+            const executeEngine = async () => {
+                if (!inputVal) return;
+                setLoading(true);
+                setPreviewData(null);
+                addLog(`Inisiasi Jalur ${activeModule.toUpperCase()}...`);
+
+                try {
+                    let url = "";
+                    let options = { headers: { 'x-rapidapi-key': MASTER_KEY } };
+
+                    if (activeModule === 'tiktok') {
+                        url = 'https://tiktok-video-no-watermark2.p.rapidapi.com/';
+                        options.method = 'POST';
+                        options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+                        options.headers['x-rapidapi-host'] = 'tiktok-video-no-watermark2.p.rapidapi.com';
+                        options.body = new URLSearchParams({ url: inputVal, hd: '1' });
+                    } else {
+                        url = 'https://social-download-all-in-one.p.rapidapi.com/v1/social/autolink';
+                        options.method = 'POST';
+                        options.headers['Content-Type'] = 'application/json';
+                        options.headers['x-rapidapi-host'] = 'social-download-all-in-one.p.rapidapi.com';
+                        options.body = JSON.stringify({ url: inputVal });
+                    }
+
+                    const response = await fetch(url, options);
+                    const result = await response.json();
+                    setApiRaw(result);
+
+                    if (activeModule === 'tiktok' && result.data) {
+                        setPreviewData({
+                            video_hd: result.data.play,
+                            video_wm: result.data.wmplay,
+                            music: result.data.music,
+                            title: result.data.title || "TikTok Media"
+                        });
+                        addLog("✅ TikTok Berhasil!");
+                    } else {
+                        const media = result.medias || [];
+                        setPreviewData({
+                            video_hd: media.find(m => m.quality === 'hd')?.url || media[0]?.url,
+                            video_wm: media.find(m => m.watermark)?.url || null,
+                            music: media.find(m => m.extension === 'mp3')?.url || null,
+                            title: result.title || "Universal Media"
+                        });
+                        addLog("✅ Universal Berhasil!");
+                    }
+                } catch (err) {
+                    addLog(`❌ Error: ${err.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen text-slate-400 p-4 md:p-8">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                            <div className="bg-[#0a0a0f] border border-white/5 p-6 rounded-[2.5rem] flex items-center gap-4 shadow-2xl">
+                                <div className="p-3 bg-cyan-500 rounded-2xl shadow-[0_0_15px_#06b6d4] text-black">
+                                    <Icon name="clock" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{location.zone} TIME</p>
+                                    <p className="text-2xl font-black text-white font-mono">{formattedTime}</p>
+                                </div>
+                            </div>
+
+                            <div className={`bg-[#0a0a0f] border ${currentPrayer ? 'border-cyan-500 animate-pulse' : 'border-white/5'} p-6 rounded-[2.5rem] flex items-center gap-4 shadow-2xl`}>
+                                <div className={`p-3 ${currentPrayer ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-white'} rounded-2xl`}>
+                                    <Icon name={currentPrayer ? "bell-ring" : "moon"} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">JADWAL SALAT</p>
+                                    <p className="text-xs font-bold text-white uppercase italic">
+                                        {currentPrayer ? `Waktunya ${currentPrayer}!` : prayerTimes ? `Next: Dzuhur ${prayerTimes.Dhuhr}` : 'Loading...'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="bg-[#0a0a0f] border border-white/5 p-6 rounded-[2.5rem] flex items-center gap-4 shadow-2xl">
+                                <div className="p-3 bg-white text-black rounded-2xl">
+                                    <Icon name="map-pin" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ENGINE NODE</p>
+                                    <p className="text-xs font-bold text-white uppercase italic">Nusantara_V19_Fix</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                            <aside className="lg:col-span-4 space-y-6">
+                                <div className="bg-[#0a0a0f] border border-white/5 p-8 rounded-[3.5rem] shadow-2xl">
+                                    <div className="flex items-center gap-3 mb-10">
+                                        <div className="p-3 bg-cyan-500 text-black rounded-2xl shadow-xl shadow-cyan-500/20"><Icon name="zap" /></div>
+                                        <h1 className="text-xl font-black text-white italic tracking-tighter uppercase">SKYZO<span className="text-cyan-500">PRO</span></h1>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <button onClick={() => setActiveModule('tiktok')} className={`w-full flex items-center justify-between px-8 py-6 rounded-3xl transition-all ${activeModule === 'tiktok' ? 'bg-white text-black scale-105 shadow-2xl' : 'bg-white/5 text-slate-600'}`}>
+                                            <div className="flex items-center gap-4"><Icon name="music" /> <span className="text-[11px] font-black uppercase tracking-widest">TikTok Engine</span></div>
+                                            <Icon name="chevron-right" size={14} />
+                                        </button>
+                                        <button onClick={() => setActiveModule('universal')} className={`w-full flex items-center justify-between px-8 py-6 rounded-3xl transition-all ${activeModule === 'universal' ? 'bg-cyan-500 text-black scale-105 shadow-2xl' : 'bg-white/5 text-slate-600'}`}>
+                                            <div className="flex items-center gap-4"><Icon name="globe" /> <span className="text-[11px] font-black uppercase tracking-widest">Universal (IG/YT)</span></div>
+                                            <Icon name="chevron-right" size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {prayerTimes && (
+                                    <div className="bg-black/40 border border-white/5 p-8 rounded-[3rem]">
+                                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] mb-6 text-center italic">Prayer List</p>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'].map(p => (
+                                                <div key={p} className={`p-4 rounded-2xl border ${prayerTimes[p] === formattedTime.substring(0, 5) ? 'border-cyan-500 bg-cyan-500/10' : 'border-white/5 bg-white/5'}`}>
+                                                    <p className="text-[8px] text-slate-500 uppercase font-black">{p}</p>
+                                                    <p className="text-xs font-bold text-white font-mono">{prayerTimes[p]}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </aside>
+
+                            <main className="lg:col-span-8 space-y-8">
+                                <section className="bg-slate-900/20 border border-white/5 p-10 rounded-[4rem] backdrop-blur-3xl shadow-2xl">
+                                    <div className="space-y-8">
+                                        <div className="space-y-2 px-4">
+                                            <label className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] italic">Media Target URL</label>
+                                            <input 
+                                                type="text"
+                                                value={inputVal}
+                                                onChange={(e) => setInputVal(e.target.value)}
+                                                placeholder={`Paste link ${activeModule.toUpperCase()}...`}
+                                                className="w-full bg-black/60 border border-slate-800 rounded-full px-10 py-8 text-sm text-white focus:border-cyan-500 outline-none transition-all shadow-inner"
+                                            />
+                                        </div>
+                                        <button onClick={executeEngine} disabled={loading} className="w-full bg-white hover:bg-cyan-500 text-black font-black py-8 rounded-full flex items-center justify-center gap-4 transition-all shadow-2xl disabled:opacity-30">
+                                            {loading ? <Icon name="refresh-cw" className="animate-spin" /> : <><Icon name="play" className="fill-current" /> <span className="tracking-widest uppercase">Start Extraction</span></>}
+                                        </button>
+                                    </div>
+                                </section>
+
+                                {previewData && (
+                                    <div className="bg-[#0a0a0f] border border-white/5 rounded-[4.5rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-500">
+                                        <div className="grid grid-cols-1 md:grid-cols-2">
+                                            <div className="bg-black aspect-[9/16] border-r border-white/5">
+                                                <video src={previewData.video_hd} controls autoPlay className="w-full h-full object-contain"></video>
+                                            </div>
+                                            <div className="p-12 flex flex-col justify-between">
+                                                <div className="space-y-8">
+                                                    <div className="flex items-center gap-2 text-cyan-500">
+                                                        <Icon name="shield-check" />
+                                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] italic">Result Verified</p>
+                                                    </div>
+                                                    <h3 className="text-3xl font-black text-white leading-tight uppercase italic">{previewData.title}</h3>
+                                                    <div className="space-y-3">
+                                                        <button onClick={() => window.open(previewData.video_hd, '_blank')} className="w-full bg-white text-black flex items-center justify-between px-6 py-5 rounded-3xl hover:bg-cyan-500 transition-all font-black text-[10px] uppercase">
+                                                            <div className="flex items-center gap-3"><Icon name="video" /> No Watermark (HD)</div>
+                                                            <Icon name="download" size={14} />
+                                                        </button>
+                                                        {previewData.video_wm && (
+                                                            <button onClick={() => window.open(previewData.video_wm, '_blank')} className="w-full bg-white/5 border border-white/5 text-white flex items-center justify-between px-6 py-5 rounded-3xl hover:bg-white/10 transition-all font-black text-[10px] uppercase">
+                                                                <div className="flex items-center gap-3"><Icon name="video" /> With Watermark</div>
+                                                                <Icon name="download" size={14} />
+                                                            </button>
+                                                        )}
+                                                        {previewData.music && (
+                                                            <button onClick={() => window.open(previewData.music, '_blank')} className="w-full bg-white/5 border border-white/5 text-cyan-500 flex items-center justify-between px-6 py-5 rounded-3xl hover:bg-cyan-500/10 transition-all font-black text-[10px] uppercase">
+                                                                <div className="flex items-center gap-3"><Icon name="music" /> Audio MP3</div>
+                                                                <Icon name="download" size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </main>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
+          
